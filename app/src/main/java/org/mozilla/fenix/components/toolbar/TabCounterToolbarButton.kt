@@ -11,6 +11,7 @@ import android.view.ViewGroup
 import mozilla.components.browser.session.Session
 import mozilla.components.browser.session.SessionManager
 import mozilla.components.concept.toolbar.Toolbar
+import mozilla.components.ui.tabcounter.TabCounter
 import org.mozilla.fenix.R
 import org.mozilla.fenix.ext.sessionsOfType
 import java.lang.ref.WeakReference

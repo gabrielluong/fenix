@@ -3,34 +3,46 @@
    - License, v. 2.0. If a copy of the MPL was not distributed with this
    - file, You can obtain one at http://mozilla.org/MPL/2.0/. -->
 <merge xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    tools:layout_height="wrap_content"
-    tools:layout_width="wrap_content">
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:background="@drawable/mozac_ui_tabcounter_round_rectangle_ripple"
+    tools:layout_height="40dp"
+    tools:layout_width="40dp">
 
     <FrameLayout
         android:id="@+id/counter_root"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
         android:layout_centerHorizontal="true"
-        android:layout_centerVertical="true">
+        android:layout_centerVertical="true"
+        android:layout_marginTop="0.5dp">
 
         <ImageView
             android:id="@+id/counter_box"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
             android:importantForAccessibility="no"
-            app:srcCompat="@drawable/ic_tabs"/>
+            app:srcCompat="@drawable/mozac_ui_tabcounter_box" />
 
-        <!-- This text size auto adjusts based on num digits in `TabCounter` -->
         <TextView
             android:id="@+id/counter_text"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
-            android:textColor="?primaryText"
+            android:textColor="@color/mozac_ui_tabcounter_default_tint"
             android:textSize="12sp"
             android:textStyle="bold"
-            tools:text="16" />
+            tools:text="18" />
     </FrameLayout>
+
+    <ImageView
+        android:id="@+id/counter_bar"
+        android:layout_width="20dp"
+        android:layout_height="2dp"
+        android:layout_below="@id/counter_root"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="1dp"
+        android:importantForAccessibility="no"
+        app:srcCompat="@drawable/mozac_ui_tabcounter_bar" />
+
 </merge>
