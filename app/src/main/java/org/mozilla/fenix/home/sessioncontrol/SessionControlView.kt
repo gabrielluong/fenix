@@ -32,7 +32,7 @@ private fun normalModeAdapterItems(
     tip?.let { items.add(AdapterItem.TipItem(it)) }
 
     if (topSites.isNotEmpty()) {
-        items.add(AdapterItem.TopSiteList(topSites))
+        items.add(AdapterItem.TopSitePager(topSites))
     }
 
     if (collections.isEmpty()) {
@@ -141,7 +141,7 @@ class SessionControlView(
             sessionControlAdapter.submitList(stateAdapterList) {
 
                 val loadedTopSites = stateAdapterList.find { adapterItem ->
-                    adapterItem is AdapterItem.TopSiteList && adapterItem.topSites.isNotEmpty()
+                    adapterItem is AdapterItem.TopSitePager && adapterItem.topSites.isNotEmpty()
                 }
                 loadedTopSites?.run {
                     homeScreenViewModel.shouldScrollToTopSites = false
