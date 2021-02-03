@@ -105,12 +105,6 @@ class TabTrayDialogFragment : AppCompatDialogFragment(), UserInteractionHandler 
             requireComponents.useCases.tabsUseCases.selectTab(tabId)
             navigateToBrowser()
         }
-
-        override fun invoke(session: Session) {
-            requireContext().components.analytics.metrics.track(Event.OpenedExistingTab)
-            requireComponents.useCases.tabsUseCases.selectTab(session)
-            navigateToBrowser()
-        }
     }
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
@@ -126,12 +120,6 @@ class TabTrayDialogFragment : AppCompatDialogFragment(), UserInteractionHandler 
             requireContext().components.analytics.metrics.track(Event.ClosedExistingTab)
             showUndoSnackbarForTab(sessionId)
             removeIfNotLastTab(sessionId)
-        }
-
-        override fun invoke(session: Session) {
-            requireContext().components.analytics.metrics.track(Event.ClosedExistingTab)
-            showUndoSnackbarForTab(session.id)
-            removeIfNotLastTab(session.id)
         }
     }
 
