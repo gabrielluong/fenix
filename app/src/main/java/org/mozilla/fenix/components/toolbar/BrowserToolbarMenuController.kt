@@ -30,6 +30,7 @@ import org.mozilla.fenix.NavGraphDirections
 import org.mozilla.fenix.R
 import org.mozilla.fenix.browser.BrowserAnimator
 import org.mozilla.fenix.browser.BrowserFragmentDirections
+import org.mozilla.fenix.browser.browsingmode.BrowsingMode
 import org.mozilla.fenix.browser.readermode.ReaderModeController
 import org.mozilla.fenix.collections.SaveCollectionStep
 import org.mozilla.fenix.components.FenixSnackbar
@@ -195,7 +196,13 @@ class DefaultBrowserToolbarMenuController(
                 )
                 navController.navigate(directions)
             }
-
+            ToolbarMenu.Item.NewTab -> {
+                activity.browsingModeManager.mode = BrowsingMode.Normal
+                navController.nav(
+                    R.id.browserFragment,
+                    BrowserFragmentDirections.actionGlobalHome(focusOnAddressBar = true)
+                )
+            }
             ToolbarMenu.Item.FindInPage -> {
                 findInPageLauncher()
                 metrics.track(Event.FindInPageOpened)
@@ -347,6 +354,7 @@ class DefaultBrowserToolbarMenuController(
             ToolbarMenu.Item.Bookmarks -> Event.BrowserMenuItemTapped.Item.BOOKMARKS
             ToolbarMenu.Item.History -> Event.BrowserMenuItemTapped.Item.HISTORY
             ToolbarMenu.Item.Downloads -> Event.BrowserMenuItemTapped.Item.DOWNLOADS
+            ToolbarMenu.Item.NewTab -> Event.BrowserMenuItemTapped.Item.NEW_TAB
         }
 
         metrics.track(Event.BrowserMenuItemTapped(eventItem))

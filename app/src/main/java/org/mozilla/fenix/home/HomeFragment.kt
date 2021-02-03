@@ -122,7 +122,9 @@ import org.mozilla.fenix.whatsnew.WhatsNew
 import java.lang.ref.WeakReference
 import kotlin.math.min
 import org.mozilla.fenix.Config
+import org.mozilla.fenix.browser.BrowserFragmentDirections
 import org.mozilla.fenix.home.mozonline.showPrivacyPopWindow
+import org.mozilla.fenix.utils.Do
 
 @ExperimentalCoroutinesApi
 @Suppress("TooManyFunctions", "LargeClass")
@@ -771,11 +773,12 @@ class HomeFragment : Fragment() {
 
     @SuppressWarnings("ComplexMethod", "LongMethod")
     private fun createHomeMenu(context: Context, menuButtonView: WeakReference<MenuButton>) =
-        HomeMenu(
+        DefaultHomeMenu(
             this.viewLifecycleOwner,
             context,
-            onItemTapped = {
-                when (it) {
+            store,
+            onItemTapped = { item ->
+                Do exhaustive when (item) {
                     HomeMenu.Item.Settings -> {
                         hideOnboardingIfNeeded()
                         nav(
@@ -857,6 +860,38 @@ class HomeFragment : Fragment() {
                         nav(
                             R.id.homeFragment,
                             HomeFragmentDirections.actionGlobalAddonsManagementFragment()
+                        )
+                    }
+                    is HomeMenu.Item.Back -> {
+                        // if (item.viewHistory) {
+                        //     nav(
+                        //         R.id.homeFragment,
+                        //         BrowserFragmentDirections.actionGlobalTabHistoryDialogFragment(
+                        //             activeSessionId = customTabSession?.id
+                        //         )
+                        //     )
+                        // } else {
+                        val currentSession = requireComponents.core.sessionManager.selectedSession
+                        requireComponents.useCases.sessionUseCases.goBack.invoke(currentSession)
+                        // }
+                    }
+                    is HomeMenu.Item.Forward -> {
+                        // if (item.viewHistory) {
+                        //     navController.navigate(
+                        //         BrowserFragmentDirections.actionGlobalTabHistoryDialogFragment(
+                        //             activeSessionId = customTabSession?.id
+                        //         )
+                        //     )
+                        // } else {
+                        val currentSession = requireComponents.core.sessionManager.selectedSession
+                        requireComponents.useCases.sessionUseCases.goForward.invoke(currentSession)
+                        // }
+                    }
+                    is HomeMenu.Item.RequestDesktop -> {
+                        val currentSession = requireComponents.core.sessionManager.selectedSession
+                        requireComponents.useCases.sessionUseCases.requestDesktopSite.invoke(
+                            item.isChecked,
+                            currentSession
                         )
                     }
                 }

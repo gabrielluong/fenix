@@ -5,7 +5,6 @@
 package org.mozilla.fenix.home
 
 import android.content.Context
-import androidx.core.content.ContextCompat.getColor
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
@@ -16,27 +15,23 @@ import mozilla.components.browser.menu.BrowserMenuHighlight
 import mozilla.components.browser.menu.ext.getHighlight
 import mozilla.components.browser.menu.item.BrowserMenuDivider
 import mozilla.components.browser.menu.item.BrowserMenuHighlightableItem
+import mozilla.components.browser.menu.item.BrowserMenuImageSwitch
 import mozilla.components.browser.menu.item.BrowserMenuImageText
+import mozilla.components.browser.menu.item.BrowserMenuItemToolbar
+import mozilla.components.browser.menu.item.SimpleBrowserMenuItem
+import mozilla.components.browser.state.selector.selectedTab
+import mozilla.components.browser.state.state.TabSessionState
+import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.concept.sync.AccountObserver
 import mozilla.components.concept.sync.AuthType
 import mozilla.components.concept.sync.OAuthAccount
 import mozilla.components.support.ktx.android.content.getColorFromAttr
 import org.mozilla.fenix.R
-import org.mozilla.fenix.experiments.ExperimentBranch
-import org.mozilla.fenix.experiments.Experiments
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.ext.settings
-import org.mozilla.fenix.ext.withExperiment
 import org.mozilla.fenix.theme.ThemeManager
-import org.mozilla.fenix.whatsnew.WhatsNew
 
-class HomeMenu(
-    private val lifecycleOwner: LifecycleOwner,
-    private val context: Context,
-    private val onItemTapped: (Item) -> Unit = {},
-    private val onMenuBuilderChanged: (BrowserMenuBuilder) -> Unit = {},
-    private val onHighlightPresent: (BrowserMenuHighlight) -> Unit = {}
-) {
+interface HomeMenu {
     sealed class Item {
         object WhatsNew : Item()
         object Help : Item()
@@ -48,16 +43,69 @@ class HomeMenu(
         object Downloads : Item()
         object Quit : Item()
         object Sync : Item()
+        data class Back(val viewHistory: Boolean) : Item()
+        data class Forward(val viewHistory: Boolean) : Item()
+        data class RequestDesktop(val isChecked: Boolean) : Item()
     }
+
+    val menuToolbar: BrowserMenuItemToolbar
+}
+
+class DefaultHomeMenu(
+    private val lifecycleOwner: LifecycleOwner,
+    private val context: Context,
+    private val store: BrowserStore,
+    private val onItemTapped: (HomeMenu.Item) -> Unit = {},
+    private val onMenuBuilderChanged: (BrowserMenuBuilder) -> Unit = {},
+    private val onHighlightPresent: (BrowserMenuHighlight) -> Unit = {}
+) : HomeMenu {
 
     private val primaryTextColor =
         ThemeManager.resolveAttribute(R.attr.primaryText, context)
     private val syncDisconnectedColor = ThemeManager.resolveAttribute(R.attr.syncDisconnected, context)
     private val syncDisconnectedBackgroundColor = context.getColorFromAttr(R.attr.syncDisconnectedBackground)
 
-    private val menuCategoryTextColor =
-        ThemeManager.resolveAttribute(R.attr.menuCategoryText, context)
     private val shouldUseBottomToolbar = context.settings().shouldUseBottomToolbar
+
+    private val selectedSession: TabSessionState? get() = store.state.selectedTab
+
+    override val menuToolbar by lazy {
+        val back = BrowserMenuItemToolbar.TwoStateButton(
+            primaryImageResource = mozilla.components.ui.icons.R.drawable.mozac_ic_back,
+            primaryContentDescription = context.getString(R.string.browser_menu_back),
+            primaryImageTintResource = primaryTextColor,
+            isInPrimaryState = {
+                selectedSession?.content?.canGoBack ?: true
+            },
+            secondaryImageTintResource = ThemeManager.resolveAttribute(
+                R.attr.disabled,
+                context
+            ),
+            disableInSecondaryState = true,
+            longClickListener = { onItemTapped.invoke(HomeMenu.Item.Back(viewHistory = true)) }
+        ) {
+            onItemTapped.invoke(HomeMenu.Item.Back(viewHistory = false))
+        }
+
+        val forward = BrowserMenuItemToolbar.TwoStateButton(
+            primaryImageResource = mozilla.components.ui.icons.R.drawable.mozac_ic_forward,
+            primaryContentDescription = context.getString(R.string.browser_menu_forward),
+            primaryImageTintResource = primaryTextColor,
+            isInPrimaryState = {
+                selectedSession?.content?.canGoForward ?: true
+            },
+            secondaryImageTintResource = ThemeManager.resolveAttribute(
+                R.attr.disabled,
+                context
+            ),
+            disableInSecondaryState = true,
+            longClickListener = { onItemTapped.invoke(HomeMenu.Item.Forward(viewHistory = true)) }
+        ) {
+            onItemTapped.invoke(HomeMenu.Item.Forward(viewHistory = false))
+        }
+
+        BrowserMenuItemToolbar(listOf(back, forward))
+    }
 
     // 'Reconnect' and 'Quit' items aren't needed most of the time, so we'll only create the if necessary.
     private val reconnectToSyncItem by lazy {
@@ -72,7 +120,7 @@ class HomeMenu(
             ),
             isHighlighted = { true }
         ) {
-            onItemTapped.invoke(Item.Sync)
+            onItemTapped.invoke(HomeMenu.Item.Sync)
         }
     }
 
@@ -82,98 +130,67 @@ class HomeMenu(
             R.drawable.ic_exit,
             primaryTextColor
         ) {
-            onItemTapped.invoke(Item.Quit)
+            onItemTapped.invoke(HomeMenu.Item.Quit)
         }
     }
 
     private val coreMenuItems by lazy {
-        val whatsNewItem = BrowserMenuHighlightableItem(
-            context.getString(R.string.browser_menu_whats_new),
-            R.drawable.ic_whats_new,
-            iconTintColorResource = primaryTextColor,
-            highlight = BrowserMenuHighlight.LowPriority(
-                notificationTint = getColor(context, R.color.whats_new_notification_color)
-            ),
-            isHighlighted = { WhatsNew.shouldHighlightWhatsNew(context) }
+        val whatsNewItem = SimpleBrowserMenuItem(
+            context.getString(R.string.browser_menu_whats_new)
         ) {
-            onItemTapped.invoke(Item.WhatsNew)
+            onItemTapped.invoke(HomeMenu.Item.WhatsNew)
         }
 
-        val experiments = context.components.analytics.experiments
-        val bookmarksIcon = experiments.withExperiment(Experiments.BOOKMARK_ICON) {
-            when (it) {
-                ExperimentBranch.TREATMENT -> R.drawable.ic_bookmark_list
-                else -> R.drawable.ic_bookmark_filled
+        val bookmarksItem = SimpleBrowserMenuItem(
+            context.getString(R.string.library_bookmarks)
+        ) {
+            onItemTapped.invoke(HomeMenu.Item.Bookmarks)
+        }
+
+        val historyItem = SimpleBrowserMenuItem(
+            context.getString(R.string.library_history)
+        ) {
+            onItemTapped.invoke(HomeMenu.Item.History)
+        }
+
+        val addons = SimpleBrowserMenuItem(
+            context.getString(R.string.browser_menu_add_ons)
+        ) {
+            onItemTapped.invoke(HomeMenu.Item.AddonsManager)
+        }
+
+        val settingsItem = SimpleBrowserMenuItem(
+            context.getString(R.string.browser_menu_settings)
+        ) {
+            onItemTapped.invoke(HomeMenu.Item.Settings)
+        }
+
+        val syncedTabsItem = SimpleBrowserMenuItem(
+            context.getString(R.string.library_synced_tabs)
+        ) {
+            onItemTapped.invoke(HomeMenu.Item.SyncedTabs)
+        }
+
+        val helpItem = SimpleBrowserMenuItem(
+            context.getString(R.string.browser_menu_help)
+        ) {
+            onItemTapped.invoke(HomeMenu.Item.Help)
+        }
+
+        val downloadsItem = SimpleBrowserMenuItem(
+            context.getString(R.string.library_downloads)
+        ) {
+            onItemTapped.invoke(HomeMenu.Item.Downloads)
+        }
+
+        val desktopMode = BrowserMenuImageSwitch(
+            imageResource = R.drawable.ic_desktop,
+            label = context.getString(R.string.browser_menu_desktop_site),
+            initialState = {
+                selectedSession?.content?.desktopMode ?: false
             }
-        }
-        val bookmarksItem = BrowserMenuImageText(
-            context.getString(R.string.library_bookmarks),
-            bookmarksIcon,
-            primaryTextColor
-        ) {
-            onItemTapped.invoke(Item.Bookmarks)
-        }
-
-        // We want to validate that the Nimbus experiments library is working, from the android UI
-        // all the way back to the data science backend. We're not testing the user's preference
-        // or response, we're end-to-end testing the experiments platform.
-        // So here, we're running multiple identical branches with the same treatment, and if the
-        // user isn't targeted, then we get still get the same treatment.
-        // The `let` block is degenerate here, but left here so as to document the form of how experiments
-        // are implemented here.
-        val historyIcon = experiments.withExperiment(Experiments.A_A_NIMBUS_VALIDATION) {
-            when (it) {
-                ExperimentBranch.A1 -> R.drawable.ic_history
-                ExperimentBranch.A2 -> R.drawable.ic_history
-                else -> R.drawable.ic_history
-            }
-        }
-        val historyItem = BrowserMenuImageText(
-            context.getString(R.string.library_history),
-            historyIcon,
-            primaryTextColor
-        ) {
-            onItemTapped.invoke(Item.History)
-        }
-
-        val addons = BrowserMenuImageText(
-            context.getString(R.string.browser_menu_add_ons),
-            R.drawable.ic_addons_extensions,
-            primaryTextColor
-        ) {
-            onItemTapped.invoke(Item.AddonsManager)
-        }
-
-        val settingsItem = BrowserMenuImageText(
-            context.getString(R.string.browser_menu_settings),
-            R.drawable.ic_settings,
-            primaryTextColor
-        ) {
-            onItemTapped.invoke(Item.Settings)
-        }
-
-        val syncedTabsItem = BrowserMenuImageText(
-            context.getString(R.string.library_synced_tabs),
-            R.drawable.ic_synced_tabs,
-            primaryTextColor
-        ) {
-            onItemTapped.invoke(Item.SyncedTabs)
-        }
-
-        val helpItem = BrowserMenuImageText(
-            context.getString(R.string.browser_menu_help),
-            R.drawable.ic_help,
-            primaryTextColor
-        ) {
-            onItemTapped.invoke(Item.Help)
-        }
-
-        val downloadsItem = BrowserMenuImageText(
-            context.getString(R.string.library_downloads),
-            R.drawable.ic_download,
-            primaryTextColor
-        ) {
-            onItemTapped.invoke(Item.Downloads)
+        ) { checked ->
+            onItemTapped.invoke(HomeMenu.Item.RequestDesktop(checked))
         }
 
         // Only query account manager if it has been initialized.
@@ -187,18 +204,20 @@ class HomeMenu(
         val settings = context.components.settings
 
         val menuItems = listOfNotNull(
+            menuToolbar,
+            BrowserMenuDivider(),
             if (settings.shouldDeleteBrowsingDataOnQuit) quitItem else null,
             settingsItem,
+            helpItem,
+            whatsNewItem,
+            BrowserMenuDivider(),
+            desktopMode,
             BrowserMenuDivider(),
             if (settings.syncedTabsInTabsTray) null else syncedTabsItem,
-            bookmarksItem,
-            historyItem,
-            downloadsItem,
-            BrowserMenuDivider(),
             addons,
-            BrowserMenuDivider(),
-            whatsNewItem,
-            helpItem,
+            downloadsItem,
+            historyItem,
+            bookmarksItem,
             accountAuthItem
         ).also { items ->
             items.getHighlight()?.let { onHighlightPresent(it) }
