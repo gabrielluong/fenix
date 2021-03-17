@@ -31,6 +31,7 @@ class CreditCardEditorFragment : Fragment(R.layout.fragment_credit_card_editor) 
         }
 
         setupExpiryMonthDropDown(view)
+        setupExpiryYearDropDown(view)
     }
 
     /**
@@ -51,5 +52,22 @@ class CreditCardEditorFragment : Fragment(R.layout.fragment_credit_card_editor) 
         }
 
         view.expiry_month_drop_down.adapter = adapter
+    }
+
+    /**
+     * Setup the expiry year dropdown with the latest 10 years.
+     */
+    private fun setupExpiryYearDropDown(view: View) {
+        val adapter =
+            ArrayAdapter<String>(view.context, android.R.layout.simple_spinner_dropdown_item)
+
+        val calendar = Calendar.getInstance()
+        val currentYear = calendar.get(Calendar.YEAR)
+
+        for (year in currentYear until currentYear + 10) {
+            adapter.add(year.toString())
+        }
+
+        view.expiry_year_drop_down.adapter = adapter
     }
 }
